@@ -1,0 +1,43 @@
+[project]
+name = "tubescope"
+version = "2.0.0.dev0"
+description = "Data pipeline, warehouse loaders and model tooling for TubeScope."
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "httpx>=0.28,<1",
+    "numpy>=2.1,<3",
+    "pandas>=2.2,<3",
+    "psycopg[binary]>=3.2,<4",
+    "pycountry>=24.6",
+    "python-dotenv>=1.0,<2",
+]
+
+[project.scripts]
+tubescope = "tubescope.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3,<9",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pipeline/src/tubescope"]
+
+[tool.pytest.ini_options]
+testpaths = ["pipeline/tests"]
+markers = ["db: needs a Postgres database at TEST_DATABASE_URL"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["pipeline/src"]
+extend-exclude = ["notebooks"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]

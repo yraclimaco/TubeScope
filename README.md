@@ -1,105 +1,82 @@
-# 📺 TubeScope  
-### *Lifecycle Analytics of YouTube Trending Videos*  
+# TubeScope
 
-**Most YouTube videos trend for just one day. TubeScope predicts which ones will go viral for longer.**
-Using machine learning and the YouTube Data API, we analyze channel metrics, video metadata, and temporal patterns to identify videos with sustained trending potential, catching 2 out of 3 viral hits before they peak.
+**Lifecycle analytics for YouTube's most-popular chart: which videos hold their place, and why.**
 
----
-## Project Overview  
+> **Status: TubeScope 2.0 rebuild in progress.** The original DS3 project (a Streamlit app,
+> 3rd of 10 at the DS3 Showcase) is being rebuilt as a SQL-first analytics platform with a
+> Next.js frontend and Tableau dashboards. This branch contains **Phase 1: the data
+> foundation**. The Streamlit app remains on the upstream `streamlit-ui` branch for reference.
 
-> **Goal:** Predict which YouTube trending videos will achieve sustained virality (>1 day trending) using machine learning, helping content creators and marketers identify high-potential content before it peaks.
+## What's here
 
+| Path | Contents |
+|---|---|
+| `pipeline/src/tubescope/` | Python package: source normalisers, YouTube API client, Postgres loader, CLI |
+| `db/migrations/` | Core warehouse schema (`core.*` facts and dimensions, `ml.*` model registry) |
+| `db/views/` | Analytics layer (`analytics.*`): lifecycles, labels, benchmarks, leaderboards |
+| `data/raw/kaggle/` | US chart history from the Kaggle *YouTube Trending Videos (Global)* export, 2025-09-29 → 2025-11-19 (top 200 per day) |
+| `data/raw/api_snapshots/` | Live pulls from the original app, 2025-11-25 → 11-26 (top 50) |
+| `notebooks/` | Original research notebooks and figures |
+| `ml/legacy/` | Original Random Forest artifacts (to be retrained in Phase 2) |
 
+## Quick start
 
-## Key Features
-- **Viral Video Detection** - Predicts which videos will trend >1 day
-- **Daily Data Collection** - Automated YouTube API pipeline
-- **ML Model** - Random Forest with 68.33% recall, 49.48% precision
-- **Survival Analysis** - Kaplan-Meier curves showing dropoff patterns
-- **Interactive Dashboard** - Streamlit web application
-- **Production Ready** - Trained models with proper feature encoding
+Requires [uv](https://docs.astral.sh/uv/) and PostgreSQL 15+.
 
+```bash
+cp .env.example .env            # set DATABASE_URL; YOUTUBE_API_KEY only for live pulls
+createdb tubescope
+uv sync
+uv run tubescope bootstrap      # migrate, load all raw data, build analytics views
+```
 
----
+Other commands: `migrate`, `views`, `load-kaggle`, `load-snapshots`, `ingest` (pulls today's
+chart from the YouTube Data API). Run `uv run tubescope --help` for details.
 
-## Tech Stack  
+Tests (the warehouse tests need a throwaway database):
 
-| Component | Technology |
-|------------|-------------|
-| **API & Data** | YouTube Data API v3 (`videos.list`, `videoCategories.list`, `channels.list`) |
-| **Storage** | Daily CSV snapshots |
-| **Analysis** | pandas, numpy, matplotlib, seaborn, lifelines |
-| **Web App** | Streamlit |
-| **Version Control** | Git + GitHub |
-| **Predictive Modeling** | scikit-learn (Random Forest Classifier)|
----
-## 📊 Model Performance
+```bash
+createdb tubescope_test
+TEST_DATABASE_URL=postgresql://localhost:5432/tubescope_test uv run pytest
+uv run ruff check . && uv run ruff format --check .
+```
 
-| Metric | Value | Interpretation |
-|--------|-------|----------------|
-| **Accuracy** | 82.35% | Overall correct predictions |
-| **Precision** | 48.83% | 2.9x better than 17% baseline |
-| **Recall** | 68.33% | Catches 2 out of 3 viral videos |
-| **F1-Score** | 57.4% | Balanced performance |
+## Data model
 
-**Key Insight:** We optimized for recall to catch viral videos early, accepting slightly lower precision as a trade-off for early trend detection.
+```
+core.snapshot_batch   one chart: region x day, with chart size and row count
+core.video_snapshot   one video on one chart: position, views, likes, comments
+core.channel_snapshot channel subscribers / views / uploads on a day
+core.video, core.channel, core.category   attributes as first observed
+```
 
----
+Key analytics views:
 
-## Dataset  
+- `analytics.video_streaks`: consecutive-day chart runs (gaps-and-islands), with
+  left-truncation and right-censoring flags derived from chart coverage.
+- `analytics.video_lifecycle` / `analytics.video_features`: one row per video with its
+  outcome (`is_multiday`), whether that outcome is observable, and point-in-time features.
+- `analytics.category_benchmarks`: share of chart vs. multi-day rate with Wilson intervals.
+- `analytics.duration_by_category`: length effects measured *within* each category.
+- `analytics.channel_performance`: leaderboard ranked on an empirical-Bayes smoothed rate.
+- `analytics.daily_category_share`, `analytics.video_daily_deltas`, `analytics.publish_timing`.
 
-TubeScope takes a hybrid approach: we train on a Kaggle dataset (for time limitations) and test daily pulls on Streamlit.
+## Fixes carried over from the original project
 
-| Source | Description |
-|--------|-------------|
-| **YouTube Data API v3** | Fetches stats (views, likes, comments, etc.) for trending videos using `videos.list` |
-| **Kaggle Dataset** |[Kaggle Dataset](https://www.kaggle.com/datasets/canerkonuk/youtube-trending-videos-global) Contains 10,000 historical data from the Youtube trending data (downloaded Nov 20th, static dataset)
-| **Trending Videos Feed (U.S.)** | Pulled via API access `pull_trending.py` |
-| **Category Lookup Table** | `videoCategories.list` endpoint used to tag videos (Music, Gaming, News, etc.) |
+- **Category feature at inference.** The original encoder was fitted on category names, but the
+  live app passed numeric ids, so every live prediction ignored category. Categories are now
+  resolved to numeric ids for every source.
+- **Censored labels.** Videos on the last day of data, or before a missing day, were labelled
+  "one day" without the next day ever being observed. They are now flagged and excluded from
+  labelled analyses (the corrected multi-day rate is 17.9%, vs. 17.0% before).
+- **Missing tags** were counted as one tag; they now count as zero.
+- **Chart sizes differ** between sources (top 200 vs. top 50), so benchmarks are grouped by
+  chart size instead of pooled.
 
-Each day’s trending data is stored as a **timestamped snapshot**, forming a **custom time-series dataset** of trending videos and their lifecycle.
+The original model metrics (68% recall, 49% precision) used a random split that lets the same
+channel appear in train and test; they are being re-evaluated in Phase 2.
 
----
+## Team
 
-## 🔄 How TubeScope Works
-
-### **For Users:**
-1. **Refresh Data** - Click button to fetch today's 50 U.S. trending videos
-2. **View Top 5** - See videos with highest viral probability
-3. **Deep Dive** - Select any video from dropdown to see detailed analysis
-4. **Get Insights** - Understand which features drive viral predictions
-5. **Customize** - Customize your own inputs to see how well a video can survive the "24-Hour Cliff"
-
-### **Behind the Scenes:**
-1. **Data Collection** - Daily YouTube API pulls (50 trending videos + channel metrics)
-2. **Feature Engineering** - Extract channel authority, video metadata, temporal patterns.
-3. **ML Prediction** - Random Forest Classifier (trained on 10k historical videos)
-4. **Live Dashboard** - Streamlit displays ranked predictions and video stats
-
-**Model Details:**
-- **Training:** Kaggle dataset (10k videos) with stratified 80/20 split
-- **Features:** Channel metrics (subscribers, videos, views), video metadata (duration, tags, description word count), temporal patterns (upload time, day of week)
-- **Optimization:** Class-weighted for imbalanced data (83/17 standard/viral ratio)
-
-
-
-**Visualize:** View results interactively via Streamlit dashboard
-
----
-
-## Results
-
-**Streamlit dashboard:** [TubeScope Streamlit](https://tubescopeds3.streamlit.app/)
-
-### **Key Findings**
-- **Duration** is the #1 predictor
-- **Categories** such as Gaming, Music, and Entertainment tend to perform better
-- **Channel size/metrics** heavily dictates a video's virality
-- **Upload timing** matters, posting at 12PM is stronger than at 2AM
-
-### **Model Journey**
-1. **Started with regression** → R² = 0.95 (data leakage!)
-2. **Fixed leakage** → R² went negative (too noisy)
-3. **Kaplan-Meier analysis** → 83% dropoff at 24 hours
-4. **Pivoted to classification** → 68.33% recall, 48.83% precision ✅
-
+Originally built by the DS3 TubeScope team. See the contributors of the
+[upstream repository](https://github.com/VedVar43789/TubeScope) for the original project.

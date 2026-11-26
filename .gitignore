@@ -1,4 +1,23 @@
+# secrets
 .env
-youtube_trending_video*.csv
-.DS_Store
+.env.*
+!.env.example
+
+# python
 __pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# full Kaggle downloads (the committed subset lives in data/raw/kaggle/)
+youtube_trending_video*.csv
+
+# os / editors
+.DS_Store
+.ipynb_checkpoints/
+.vscode/
+.idea/
