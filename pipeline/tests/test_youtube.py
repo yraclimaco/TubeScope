@@ -8,7 +8,9 @@ SECRET = "test-key-not-real"
 
 def _client(handler):
     return YouTubeClient(
-        SECRET, http=httpx.Client(base_url=API_ROOT, transport=httpx.MockTransport(handler))
+        SECRET,
+        http=httpx.Client(base_url=API_ROOT, transport=httpx.MockTransport(handler)),
+        retry_wait=0,
     )
 
 
@@ -74,3 +76,34 @@ def test_network_errors_do_not_leak_the_api_key():
 
     assert SECRET not in str(excinfo.value)
     assert excinfo.value.__cause__ is None
+
+
+def test_transient_errors_are_retried():
+    responses = iter([httpx.Response(503), httpx.Response(200, json={"items": [{"id": "ok"}]})])
+
+    with _client(lambda request: next(responses)) as client:
+        assert client.most_popular("US") == [{"id": "ok"}]
+
+
+def test_quota_errors_are_not_retried():
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(403, json={"error": {"message": "quotaExceeded"}})
+
+    with _client(handler) as client, pytest.raises(YouTubeAPIError):
+        client.most_popular("US")
+    assert len(calls) == 1
+
+
+def test_retries_give_up_after_max_attempts():
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(500)
+
+    with _client(handler) as client, pytest.raises(YouTubeAPIError, match="HTTP 500"):
+        client.most_popular("US")
+    assert len(calls) == 3

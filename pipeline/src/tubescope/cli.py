@@ -5,11 +5,11 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
-from . import config, db, sources
+from . import config, daily, db, sources
 from .youtube import YouTubeClient
 
 log = logging.getLogger("tubescope")
@@ -47,31 +47,45 @@ def _cmd_load_snapshots(args: argparse.Namespace) -> dict:
 
 
 def _cmd_ingest(args: argparse.Namespace) -> dict:
-    captured_at = datetime.now(UTC)
     with YouTubeClient(config.youtube_api_key()) as client:
-        videos = client.most_popular(args.region, max_videos=args.max_videos)
-        channels = client.channels(item["snippet"]["channelId"] for item in videos)
-        categories = client.video_categories(args.region)
-    if args.raw_dir:
-        raw_dir = Path(args.raw_dir)
-        raw_dir.mkdir(parents=True, exist_ok=True)
-        stamp = captured_at.strftime("%Y-%m-%dT%H-%M-%SZ")
-        (raw_dir / f"{args.region}_{stamp}.json").write_text(
-            json.dumps(
-                {
-                    "captured_at": captured_at.isoformat(),
-                    "videos": videos,
-                    "channels": channels,
-                    "categories": categories,
-                }
-            )
-        )
-    bundle = sources.api_bundle(
-        videos, channels, region=args.region, captured_at=captured_at, chart_size=args.max_videos
-    )
+        payload = daily.pull(client, args.region, args.max_videos)
+    archived = None if args.no_archive else str(daily.archive(payload, Path(args.archive_dir)))
     with db.connect(args.database_url) as conn:
-        db.upsert_categories(conn, ((int(c["id"]), c["snippet"]["title"]) for c in categories))
-        return {"captured_at": captured_at.isoformat(), **db.load_bundle(conn, bundle)}
+        loaded = daily.load_payload(conn, payload)
+    return {"captured_at": payload["captured_at"], "archived_to": archived, **loaded}
+
+
+def _cmd_load_api_archive(args: argparse.Namespace) -> dict:
+    paths = [Path(p) for p in args.paths] or daily.archived_pulls()
+    results = {}
+    with db.connect(args.database_url) as conn:
+        for path in paths:
+            results[path.name] = daily.load_payload(conn, daily.read_archive(path))
+    return results
+
+
+def _cmd_daily(args: argparse.Namespace) -> dict:
+    with YouTubeClient(config.youtube_api_key()) as client, db.connect(args.database_url) as conn:
+        try:
+            report = daily.run(conn, client, region=args.region, max_videos=args.max_videos)
+        except daily.IncompleteChartError as exc:
+            log.error("%s", exc)
+            report = {"error": str(exc)}
+            _write_step_summary(report)
+            raise SystemExit(1) from None
+    _write_step_summary(report)
+    return report
+
+
+def _write_step_summary(report: dict) -> None:
+    target = os.getenv("GITHUB_STEP_SUMMARY")
+    if not target:
+        return
+    with open(target, "a", encoding="utf-8") as handle:
+        if "error" in report:
+            handle.write(f"## TubeScope daily pull failed\n\n{report['error']}\n")
+        else:
+            handle.write(daily.step_summary(report))
 
 
 def _cmd_bootstrap(args: argparse.Namespace) -> dict:
@@ -86,6 +100,8 @@ def _cmd_bootstrap(args: argparse.Namespace) -> dict:
             loaded["api_snapshots"] = db.load_bundle(
                 conn, sources.legacy_snapshots_bundle(snapshot_paths)
             )
+        for path in daily.archived_pulls():
+            loaded[f"api/{path.name}"] = daily.load_payload(conn, daily.read_archive(path))
         views = db.rebuild_views(conn)
     return {"migrations_applied": applied, "loaded": loaded, "views_built": views}
 
@@ -151,8 +167,20 @@ def build_parser() -> argparse.ArgumentParser:
     ingest = sub.add_parser("ingest", help="pull today's chart from the YouTube Data API")
     ingest.add_argument("--region", default=config.DEFAULT_REGION)
     ingest.add_argument("--max-videos", type=int, default=200)
-    ingest.add_argument("--raw-dir", default=None, help="also archive raw API JSON here")
+    ingest.add_argument("--archive-dir", default=str(config.API_ARCHIVE_DIR))
+    ingest.add_argument("--no-archive", action="store_true", help="do not save the raw JSON")
     ingest.set_defaults(func=_cmd_ingest)
+
+    archive = sub.add_parser("load-api-archive", help="reload archived raw API pulls")
+    archive.add_argument("paths", nargs="*", help=f"defaults to {config.API_ARCHIVE_DIR}")
+    archive.set_defaults(func=_cmd_load_api_archive)
+
+    job = sub.add_parser(
+        "daily", help="scheduled job: ingest + archive, rebuild views, sync models, score"
+    )
+    job.add_argument("--region", default=config.DEFAULT_REGION)
+    job.add_argument("--max-videos", type=int, default=200)
+    job.set_defaults(func=_cmd_daily)
 
     feature_sets = ["prepublish", "chartday"]
     train = sub.add_parser("train", help="train, evaluate and register models")
