@@ -90,6 +90,41 @@ def _cmd_bootstrap(args: argparse.Namespace) -> dict:
     return {"migrations_applied": applied, "loaded": loaded, "views_built": views}
 
 
+def _cmd_train(args: argparse.Namespace) -> dict:
+    from .ml import dataset, registry, train
+
+    with db.connect(args.database_url) as conn:
+        data = dataset.labelled(dataset.load_frame(conn, region=args.region, chart_size=200))
+        results = {}
+        for feature_set in args.feature_set:
+            result = train.train(data, feature_set, n_boot=args.bootstrap)
+            path = registry.save(result, Path(args.out) if args.out else registry.MODELS_DIR)
+            version_id = registry.register(conn, result, path) if args.register else None
+            test = result.report["test"]["all_test"]
+            results[feature_set] = {
+                "name": result.name,
+                "model_version_id": version_id,
+                "artifact_dir": str(path),
+                "estimator": result.report["estimator"],
+                "test_roc_auc": round(test["roc_auc"], 4),
+                "test_average_precision": round(test["average_precision"], 4),
+                "test_brier": round(test["brier"], 4),
+            }
+    return results
+
+
+def _cmd_score(args: argparse.Namespace) -> dict:
+    from .ml import registry
+
+    with db.connect(args.database_url) as conn:
+        version_id, uri = registry.latest_model(conn, args.feature_set)
+        counts = registry.score(
+            conn, version_id, uri, region=args.region,
+            include_training_period=args.include_training_period,
+        )  # fmt: skip
+    return {"model_version_id": version_id, "artifact_uri": uri, **counts}
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="tubescope", description=__doc__)
     parser.add_argument("--database-url", default=None, help="defaults to $DATABASE_URL")
@@ -118,6 +153,25 @@ def build_parser() -> argparse.ArgumentParser:
     ingest.add_argument("--max-videos", type=int, default=200)
     ingest.add_argument("--raw-dir", default=None, help="also archive raw API JSON here")
     ingest.set_defaults(func=_cmd_ingest)
+
+    feature_sets = ["prepublish", "chartday"]
+    train = sub.add_parser("train", help="train, evaluate and register models")
+    train.add_argument("--feature-set", nargs="+", choices=feature_sets, default=feature_sets)
+    train.add_argument("--region", default=config.DEFAULT_REGION)
+    train.add_argument("--bootstrap", type=int, default=1000, help="bootstrap resamples for CIs")
+    train.add_argument("--out", default=None, help="artifact directory (default ml/models)")
+    train.add_argument("--no-register", dest="register", action="store_false")
+    train.set_defaults(func=_cmd_train)
+
+    score = sub.add_parser("score", help="score new chart videos with the latest model")
+    score.add_argument("--feature-set", choices=feature_sets, default="chartday")
+    score.add_argument("--region", default=config.DEFAULT_REGION)
+    score.add_argument(
+        "--include-training-period",
+        action="store_true",
+        help="also score videos the model was trained on (stored as in_sample)",
+    )
+    score.set_defaults(func=_cmd_score)
     return parser
 
 

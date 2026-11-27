@@ -4,8 +4,8 @@
 
 > **Status: TubeScope 2.0 rebuild in progress.** The original DS3 project (a Streamlit app,
 > 3rd of 10 at the DS3 Showcase) is being rebuilt as a SQL-first analytics platform with a
-> Next.js frontend and Tableau dashboards. This branch contains **Phase 1: the data
-> foundation**. The Streamlit app remains on the upstream `streamlit-ui` branch for reference.
+> Next.js frontend and Tableau dashboards. Done so far: **Phase 1** (data foundation) and
+> **Phase 2** (model retraining and honest evaluation). The Streamlit app remains on the upstream `streamlit-ui` branch for reference.
 
 ## What's here
 
@@ -17,7 +17,9 @@
 | `data/raw/kaggle/` | US chart history from the Kaggle *YouTube Trending Videos (Global)* export, 2025-09-29 → 2025-11-19 (top 200 per day) |
 | `data/raw/api_snapshots/` | Live pulls from the original app, 2025-11-25 → 11-26 (top 50) |
 | `notebooks/` | Original research notebooks and figures |
-| `ml/legacy/` | Original Random Forest artifacts (to be retrained in Phase 2) |
+| `pipeline/src/tubescope/ml/` | Training, evaluation, model cards and batch scoring |
+| `ml/models/` | Trained models, each with `model.joblib`, `report.json` and `MODEL_CARD.md` |
+| `ml/legacy/` | Original Random Forest artifacts (kept for reference, not used) |
 
 ## Quick start
 
@@ -31,7 +33,9 @@ uv run tubescope bootstrap      # migrate, load all raw data, build analytics vi
 ```
 
 Other commands: `migrate`, `views`, `load-kaggle`, `load-snapshots`, `ingest` (pulls today's
-chart from the YouTube Data API). Run `uv run tubescope --help` for details.
+chart from the YouTube Data API), `train` (trains, evaluates and registers both models, about
+4 minutes) and `score` (writes probabilities for newly charted videos to `ml.prediction`).
+Run `uv run tubescope --help` for details.
 
 Tests (the warehouse tests need a throwaway database):
 
@@ -73,8 +77,35 @@ Key analytics views:
 - **Chart sizes differ** between sources (top 200 vs. top 50), so benchmarks are grouped by
   chart size instead of pooled.
 
-The original model metrics (68% recall, 49% precision) used a random split that lets the same
-channel appear in train and test; they are being re-evaluated in Phase 2.
+## Models
+
+The question: will a video that just reached the chart still be there tomorrow? About 18% are.
+Two models answer it from different points in time:
+
+| Model | Knows | ROC AUC | Avg. precision | Top-10% precision |
+|---|---|---|---|---|
+| Base rate | nothing | 0.500 | 0.167 | — |
+| Category only | the video's category | 0.677 | 0.325 | — |
+| `prepublish` | channel size, length, metadata, publish time | 0.830 (0.793–0.858) | 0.471 (0.409–0.542) | 55.7% |
+| `chartday` | the above + first-day views, engagement, days since publish | 0.900 (0.874–0.921) | 0.658 (0.590–0.723) | 72.5% |
+
+Scores are on the last nine chart days (2025-11-10 → 11-18, 1,489 videos), which no model saw
+during tuning or selection; brackets are 95% intervals from resampling whole channels. Both
+chosen models are calibrated gradient boosting, picked by channel-grouped cross-validation on
+the earlier period. Full details, calibration tables and limitations are in each model's
+[`MODEL_CARD.md`](ml/models/).
+
+What the evaluation shows:
+
+- **Both models beat the category baseline by a clear margin** (average precision +0.15 for
+  `prepublish`, +0.33 for `chartday`; neither interval comes near zero).
+- **The original metrics roughly hold up.** At its threshold `prepublish` has 46% precision and
+  68% recall, close to the original 49% / 68%. A random split flatters the same model only
+  somewhat (ROC AUC 0.864 vs. 0.830 on later days).
+- **It generalises to new channels**: on the 330 test videos from channels never seen in
+  training, `prepublish` has ROC AUC 0.800 and `chartday` 0.843.
+- **First-day views are the strongest signal**, then how quickly a video charted after publishing.
+  Before publishing, video length and channel size carry most of the signal.
 
 ## Team
 
