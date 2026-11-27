@@ -1,0 +1,49 @@
+# Pulls the US most-popular chart once a day into the hosted warehouse, archives the raw API
+# response in the repository, and scores newly charted videos with the latest chartday model.
+#
+# Needs repository secrets DATABASE_URL (hosted Postgres) and YOUTUBE_API_KEY.
+# Scheduled workflows only run from the default branch.
+name: Daily chart pull
+
+on:
+  schedule:
+    # 17:17 UTC every day. A fixed time keeps "on the chart the next day" comparable.
+    - cron: "17 17 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write  # to commit the raw archive
+
+concurrency:
+  group: daily-pull
+  cancel-in-progress: false
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --no-dev
+
+      - name: Ingest, rebuild views, score
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: uv run tubescope -v daily
+
+      # Runs even if the chart check failed, so a short chart is still archived.
+      - name: Commit raw archive
+        if: always()
+        run: |
+          git add data/raw/api
+          if git diff --cached --quiet; then
+            echo "Nothing to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "data: daily chart pull $(date -u +%F) [skip ci]"
+          git pull --rebase --autostash
+          git push

@@ -4,8 +4,8 @@
 
 > **Status: TubeScope 2.0 rebuild in progress.** The original DS3 project (a Streamlit app,
 > 3rd of 10 at the DS3 Showcase) is being rebuilt as a SQL-first analytics platform with a
-> Next.js frontend and Tableau dashboards. Done so far: **Phase 1** (data foundation) and
-> **Phase 2** (model retraining and honest evaluation). The Streamlit app remains on the upstream `streamlit-ui` branch for reference.
+> Next.js frontend and Tableau dashboards. Done so far: **Phase 1** (data foundation),
+> **Phase 2** (model retraining and honest evaluation) and **Phase 3** (daily data pipeline). The Streamlit app remains on the upstream `streamlit-ui` branch for reference.
 
 ## What's here
 
@@ -15,7 +15,9 @@
 | `db/migrations/` | Core warehouse schema (`core.*` facts and dimensions, `ml.*` model registry) |
 | `db/views/` | Analytics layer (`analytics.*`): lifecycles, labels, benchmarks, leaderboards |
 | `data/raw/kaggle/` | US chart history from the Kaggle *YouTube Trending Videos (Global)* export, 2025-09-29 → 2025-11-19 (top 200 per day) |
+| `data/raw/api/` | Daily raw API pulls archived by the scheduled job (gzipped JSON) |
 | `data/raw/api_snapshots/` | Live pulls from the original app, 2025-11-25 → 11-26 (top 50) |
+| `.github/workflows/` | CI (lint + tests against Postgres) and the daily chart pull |
 | `notebooks/` | Original research notebooks and figures |
 | `pipeline/src/tubescope/ml/` | Training, evaluation, model cards and batch scoring |
 | `ml/models/` | Trained models, each with `model.joblib`, `report.json` and `MODEL_CARD.md` |
@@ -44,6 +46,41 @@ createdb tubescope_test
 TEST_DATABASE_URL=postgresql://localhost:5432/tubescope_test uv run pytest
 uv run ruff check . && uv run ruff format --check .
 ```
+
+## Daily pipeline
+
+`.github/workflows/daily.yml` runs `tubescope daily` at 17:17 UTC every day:
+
+1. Pulls the US top-200 most-popular chart and its channels from the YouTube Data API
+   (about 10 quota units of the 10,000 free daily units; transient errors are retried).
+2. Archives the raw response to `data/raw/api/US/<year>/` and commits it, so the warehouse can
+   always be rebuilt with `tubescope bootstrap`.
+3. Loads the day into the hosted Postgres warehouse and rebuilds the analytics views.
+4. Registers any committed model in `ml/models/` that the database doesn't know yet, then
+   scores newly charted videos with the latest `chartday` model.
+5. Fails the run if the chart came back with under 90% of its rows. The partial day is still
+   loaded and archived; the views treat it as incomplete.
+
+Each run writes a summary to the Actions run page. `analytics.data_freshness` reports the
+latest chart day and recent completeness.
+
+### One-time setup
+
+1. **YouTube API key.** In the Google Cloud console, enable *YouTube Data API v3* and create an
+   API key restricted to that API.
+2. **Hosted Postgres.** Create a free [Neon](https://neon.tech) project and copy its connection
+   string (it includes `sslmode=require`).
+3. **Load the history** into it once, from your machine:
+   ```bash
+   DATABASE_URL='<neon connection string>' uv run tubescope bootstrap
+   ```
+4. **Add repository secrets** (Settings → Secrets and variables → Actions): `DATABASE_URL`
+   and `YOUTUBE_API_KEY`.
+5. **Merge to `main`.** Scheduled workflows only run from the default branch. To test it straight
+   away, open Actions → *Daily chart pull* → *Run workflow*.
+
+The first live day can't be labelled (the day before it wasn't observed). From the second day
+on, each day's new entries get a prediction, and their outcome is known the following day.
 
 ## Data model
 

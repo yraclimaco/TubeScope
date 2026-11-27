@@ -52,7 +52,14 @@ def _relative(path: Path) -> str:
 
 
 def register(conn: psycopg.Connection, result: TrainResult, artifact_dir: Path) -> int:
-    report = result.report
+    version_id = register_report(conn, result.report, artifact_dir)
+    if version_id is None:
+        raise ValueError(f"model {result.name} is already registered")
+    return version_id
+
+
+def register_report(conn: psycopg.Connection, report: dict, artifact_dir: Path) -> int | None:
+    """Insert a model from its training report. Returns None if the name already exists."""
     headline = {
         "test": report["test"],
         "test_intervals_95": report["test_intervals_95"],
@@ -67,13 +74,14 @@ def register(conn: psycopg.Connection, result: TrainResult, artifact_dir: Path) 
         INSERT INTO ml.model_version (name, trained_at, git_sha, threshold, metrics,
                                       artifact_uri, feature_set, estimator, trained_through)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (name) DO NOTHING
         RETURNING model_version_id
         """,
         [
-            result.name,
+            report["name"],
             report["trained_at"],
             report["git_sha"],
-            round(result.threshold, 4),
+            round(report["threshold"], 4),
             Jsonb(headline),
             _relative(artifact_dir / ARTIFACT_NAME),
             report["feature_set"],
@@ -81,7 +89,23 @@ def register(conn: psycopg.Connection, result: TrainResult, artifact_dir: Path) 
             report["trained_through"],
         ],
     ).fetchone()
-    return int(row[0])
+    return None if row is None else int(row[0])
+
+
+def sync_artifacts(conn: psycopg.Connection, models_dir: Path = MODELS_DIR) -> list[str]:
+    """Register every committed model directory that the database does not know yet.
+
+    Lets a fresh database (e.g. the hosted one used by the daily job) pick up models trained
+    and committed elsewhere. Returns the names newly registered.
+    """
+    added = []
+    for report_path in sorted(models_dir.glob("*/report.json")):
+        if not (report_path.parent / ARTIFACT_NAME).exists():
+            continue
+        report = json.loads(report_path.read_text())
+        if register_report(conn, report, report_path.parent) is not None:
+            added.append(report["name"])
+    return added
 
 
 def load_artifact(path: str | Path) -> dict:
