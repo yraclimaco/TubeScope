@@ -1,0 +1,546 @@
+{
+  "name": "chartday-gradient_boosting-202611272148",
+  "feature_set": "chartday",
+  "feature_set_description": "Everything in prepublish plus what is known at the end of a video's first chart day: views, engagement and how long after publishing it charted. Used for daily scoring.",
+  "features": [
+    "channel_subscribers",
+    "channel_total_views",
+    "channel_video_count",
+    "channel_age_days",
+    "duration_minutes",
+    "description_word_count",
+    "tags_count",
+    "first_day_views",
+    "days_published_before_chart",
+    "title_char_count",
+    "first_day_engagement_rate",
+    "publish_hour_pt",
+    "publish_isodow_pt",
+    "category_id",
+    "definition",
+    "licensed_content",
+    "channel_country"
+  ],
+  "estimator": "gradient_boosting",
+  "params": {
+    "model__l2_regularization": 1.0,
+    "model__learning_rate": 0.03,
+    "model__max_leaf_nodes": 31,
+    "model__min_samples_leaf": 80
+  },
+  "threshold": 0.35264899308186176,
+  "trained_at": "2026-11-27T21:48:29.318439+00:00",
+  "trained_through": "2025-11-18",
+  "git_sha": "18848a8-dirty",
+  "sklearn_version": "1.9.1",
+  "data": {
+    "labelled_rows": 7519,
+    "base_rate": 0.17848118100811278,
+    "date_range": [
+      "2025-10-01",
+      "2025-11-18"
+    ],
+    "channels": 2327,
+    "train_rows": 5880,
+    "train_range": [
+      "2025-10-01",
+      "2025-11-08"
+    ],
+    "test_rows": 1489,
+    "test_range": [
+      "2025-11-10",
+      "2025-11-18"
+    ],
+    "embargoed_rows": 150,
+    "test_new_channel_rows": 330
+  },
+  "selection": {
+    "rule": "highest channel-grouped out-of-fold average precision on training period",
+    "chosen": "gradient_boosting"
+  },
+  "comparison": {
+    "prior": {
+      "description": "Predicts the training base rate for every video.",
+      "baseline": true,
+      "calibrated": false,
+      "params": {},
+      "cv": {
+        "n": 5880,
+        "positives": 1066,
+        "base_rate": 0.1812925170068027,
+        "roc_auc": 0.4617298202319532,
+        "average_precision": 0.16930415693481896,
+        "brier": 0.14870234552154193,
+        "log_loss": 0.47429311319257406,
+        "ece": 0.024744897959183672,
+        "threshold": 0.17091836734693877,
+        "flagged_rate": 1.0,
+        "precision": 0.1812925170068027,
+        "recall": 1.0,
+        "f1": 0.30693924560898356,
+        "precision_top10pct": 0.1564625850340136,
+        "lift_top10pct": 0.8630393996247656
+      },
+      "test": {
+        "n": 1489,
+        "positives": 248,
+        "base_rate": 0.16655473472128945,
+        "roc_auc": 0.5,
+        "average_precision": 0.16655473472128945,
+        "brier": 0.1390314572899055,
+        "log_loss": 0.45112884120450586,
+        "ece": 0.028362412795877246,
+        "threshold": 0.17091836734693877,
+        "flagged_rate": 1.0,
+        "precision": 0.16655473472128945,
+        "recall": 1.0,
+        "f1": 0.28554979850316636,
+        "precision_top10pct": 0.174496644295302,
+        "lift_top10pct": 1.0476834812730027
+      }
+    },
+    "category_only": {
+      "description": "Logistic regression on category alone: the category's historical rate.",
+      "baseline": true,
+      "calibrated": false,
+      "params": {},
+      "cv": {
+        "n": 5880,
+        "positives": 1066,
+        "base_rate": 0.1812925170068027,
+        "roc_auc": 0.7133438002511436,
+        "average_precision": 0.37646982961241193,
+        "brier": 0.12686774914740026,
+        "log_loss": 0.4111957628299961,
+        "ece": 0.01860305948718187,
+        "threshold": 0.24523878525419787,
+        "flagged_rate": 0.23605442176870747,
+        "precision": 0.430835734870317,
+        "recall": 0.5609756097560976,
+        "f1": 0.4873675631621842,
+        "precision_top10pct": 0.4744897959183674,
+        "lift_top10pct": 2.6172607879924956
+      },
+      "test": {
+        "n": 1489,
+        "positives": 248,
+        "base_rate": 0.16655473472128945,
+        "roc_auc": 0.67682150191053,
+        "average_precision": 0.3248035169251019,
+        "brier": 0.1234925105781263,
+        "log_loss": 0.40679565014095065,
+        "ece": 0.030104933606872476,
+        "threshold": 0.24523878525419787,
+        "flagged_rate": 0.2008059100067159,
+        "precision": 0.39464882943143814,
+        "recall": 0.47580645161290325,
+        "f1": 0.43144424131627057,
+        "precision_top10pct": 0.5100671140939598,
+        "lift_top10pct": 3.0624594067980087
+      }
+    },
+    "logistic": {
+      "description": "L2 logistic regression on all features (log-scaled, standardised).",
+      "baseline": false,
+      "calibrated": false,
+      "params": {
+        "model__C": 0.1
+      },
+      "cv": {
+        "n": 5880,
+        "positives": 1066,
+        "base_rate": 0.1812925170068027,
+        "roc_auc": 0.831425462476158,
+        "average_precision": 0.5236143451385856,
+        "brier": 0.11470899997810674,
+        "log_loss": 0.3662246595370277,
+        "ece": 0.02715702800893359,
+        "threshold": 0.1930294739797613,
+        "flagged_rate": 0.2801020408163265,
+        "precision": 0.4602307225258045,
+        "recall": 0.7110694183864915,
+        "f1": 0.558791006266126,
+        "precision_top10pct": 0.6020408163265306,
+        "lift_top10pct": 3.3208255159474676
+      },
+      "test": {
+        "n": 1489,
+        "positives": 248,
+        "base_rate": 0.16655473472128945,
+        "roc_auc": 0.8042324088274285,
+        "average_precision": 0.48622035378808565,
+        "brier": 0.11043764660533985,
+        "log_loss": 0.3600311649382175,
+        "ece": 0.02074615678616761,
+        "threshold": 0.1930294739797613,
+        "flagged_rate": 0.2525184687709872,
+        "precision": 0.4228723404255319,
+        "recall": 0.6411290322580645,
+        "f1": 0.5096153846153846,
+        "precision_top10pct": 0.5771812080536913,
+        "lift_top10pct": 3.4654145919030097
+      }
+    },
+    "random_forest": {
+      "description": "Random forest with the original project's hyperparameters (balanced class weights), followed by isotonic calibration.",
+      "baseline": false,
+      "calibrated": true,
+      "params": {},
+      "cv": {
+        "n": 5880,
+        "positives": 1066,
+        "base_rate": 0.1812925170068027,
+        "roc_auc": 0.8667830732907694,
+        "average_precision": 0.5566163507082997,
+        "brier": 0.1055874340906343,
+        "log_loss": 0.32763116604274656,
+        "ece": 0.013042963278695202,
+        "threshold": 0.2782373876123876,
+        "flagged_rate": 0.29897959183673467,
+        "precision": 0.47667804323094426,
+        "recall": 0.7861163227016885,
+        "f1": 0.5934844192634561,
+        "precision_top10pct": 0.6071428571428571,
+        "lift_top10pct": 3.348968105065666
+      },
+      "test": {
+        "n": 1489,
+        "positives": 248,
+        "base_rate": 0.16655473472128945,
+        "roc_auc": 0.8781744690806061,
+        "average_precision": 0.6068475101034001,
+        "brier": 0.09402306277468025,
+        "log_loss": 0.3113022488475511,
+        "ece": 0.018351937679381033,
+        "threshold": 0.2782373876123876,
+        "flagged_rate": 0.2619207521826729,
+        "precision": 0.48717948717948717,
+        "recall": 0.7661290322580645,
+        "f1": 0.5956112852664577,
+        "precision_top10pct": 0.6577181208053692,
+        "lift_top10pct": 3.948960814029011
+      }
+    },
+    "gradient_boosting": {
+      "description": "Histogram gradient boosting, followed by isotonic calibration.",
+      "baseline": false,
+      "calibrated": true,
+      "params": {
+        "model__l2_regularization": 1.0,
+        "model__learning_rate": 0.03,
+        "model__max_leaf_nodes": 31,
+        "model__min_samples_leaf": 80
+      },
+      "cv": {
+        "n": 5880,
+        "positives": 1066,
+        "base_rate": 0.1812925170068027,
+        "roc_auc": 0.8839568339996461,
+        "average_precision": 0.6026433777366609,
+        "brier": 0.10006258967432666,
+        "log_loss": 0.3114919575301233,
+        "ece": 0.00655277491294715,
+        "threshold": 0.35264899308186176,
+        "flagged_rate": 0.21972789115646257,
+        "precision": 0.5503095975232198,
+        "recall": 0.6669793621013134,
+        "f1": 0.6030534351145039,
+        "precision_top10pct": 0.6666666666666666,
+        "lift_top10pct": 3.6772983114446527
+      },
+      "test": {
+        "n": 1489,
+        "positives": 248,
+        "base_rate": 0.16655473472128945,
+        "roc_auc": 0.8995915754724338,
+        "average_precision": 0.6582563569403668,
+        "brier": 0.08638699374231175,
+        "log_loss": 0.2812529282746057,
+        "ece": 0.0227091670600098,
+        "threshold": 0.35264899308186176,
+        "flagged_rate": 0.1826729348556078,
+        "precision": 0.5955882352941176,
+        "recall": 0.6532258064516129,
+        "f1": 0.6230769230769231,
+        "precision_top10pct": 0.7248322147651006,
+        "lift_top10pct": 4.351915999134011
+      }
+    }
+  },
+  "test": {
+    "all_test": {
+      "n": 1489,
+      "positives": 248,
+      "base_rate": 0.16655473472128945,
+      "roc_auc": 0.8995915754724338,
+      "average_precision": 0.6582563569403668,
+      "brier": 0.08638699374231175,
+      "log_loss": 0.2812529282746057,
+      "ece": 0.0227091670600098,
+      "threshold": 0.35264899308186176,
+      "flagged_rate": 0.1826729348556078,
+      "precision": 0.5955882352941176,
+      "recall": 0.6532258064516129,
+      "f1": 0.6230769230769231,
+      "precision_top10pct": 0.7248322147651006,
+      "lift_top10pct": 4.351915999134011
+    },
+    "new_channels": {
+      "n": 330,
+      "positives": 71,
+      "base_rate": 0.21515151515151515,
+      "roc_auc": 0.8425961172440046,
+      "average_precision": 0.5939048526380329,
+      "brier": 0.1219287494050123,
+      "log_loss": 0.38675817480884955,
+      "ece": 0.049519509117847554,
+      "threshold": 0.35264899308186176,
+      "flagged_rate": 0.28484848484848485,
+      "precision": 0.4787234042553192,
+      "recall": 0.6338028169014085,
+      "f1": 0.5454545454545455,
+      "precision_top10pct": 0.7272727272727273,
+      "lift_top10pct": 3.380281690140845
+    },
+    "returning_channels": {
+      "n": 1159,
+      "positives": 177,
+      "base_rate": 0.15271786022433131,
+      "roc_auc": 0.914825618189559,
+      "average_precision": 0.6888122027494346,
+      "brier": 0.07626725313084394,
+      "log_loss": 0.2512126078636476,
+      "ece": 0.026667948698486665,
+      "threshold": 0.35264899308186176,
+      "flagged_rate": 0.1535806729939603,
+      "precision": 0.6573033707865169,
+      "recall": 0.6610169491525424,
+      "f1": 0.6591549295774649,
+      "precision_top10pct": 0.75,
+      "lift_top10pct": 4.911016949152542
+    }
+  },
+  "test_intervals_95": {
+    "roc_auc": [
+      0.8735929290952091,
+      0.920563275463672
+    ],
+    "average_precision": [
+      0.5896622223862438,
+      0.7228541127172189
+    ],
+    "brier": [
+      0.0751659840750949,
+      0.09877596140859363
+    ]
+  },
+  "versus_baselines": {
+    "category_only": {
+      "average_precision": {
+        "difference": 0.3334528400152649,
+        "ci_low": 0.27406617590059684,
+        "ci_high": 0.39381801768767566,
+        "share_not_better": 0.0
+      },
+      "brier_improvement": {
+        "difference": 0.037105516835852836,
+        "ci_low": 0.028226816913186237,
+        "ci_high": 0.04604368701882539,
+        "share_not_better": 0.0
+      }
+    },
+    "prior": {
+      "average_precision": {
+        "difference": 0.4917016222190773,
+        "ci_low": 0.42730555294741557,
+        "ci_high": 0.552692404335919,
+        "share_not_better": 0.0
+      },
+      "brier_improvement": {
+        "difference": 0.05264446354763205,
+        "ci_low": 0.043188010259046596,
+        "ci_high": 0.06267205433330504,
+        "share_not_better": 0.0
+      }
+    }
+  },
+  "calibration_test": [
+    {
+      "n": 149,
+      "mean_predicted": 0.0003920315329711303,
+      "observed_rate": 0.0
+    },
+    {
+      "n": 149,
+      "mean_predicted": 0.0019438575850050579,
+      "observed_rate": 0.006711409395973154
+    },
+    {
+      "n": 149,
+      "mean_predicted": 0.005453790943997974,
+      "observed_rate": 0.006711409395973154
+    },
+    {
+      "n": 149,
+      "mean_predicted": 0.013148312186219117,
+      "observed_rate": 0.040268456375838924
+    },
+    {
+      "n": 149,
+      "mean_predicted": 0.02789236298029807,
+      "observed_rate": 0.053691275167785234
+    },
+    {
+      "n": 148,
+      "mean_predicted": 0.06005027411692424,
+      "observed_rate": 0.02702702702702703
+    },
+    {
+      "n": 149,
+      "mean_predicted": 0.12727544315164852,
+      "observed_rate": 0.10738255033557047
+    },
+    {
+      "n": 149,
+      "mean_predicted": 0.24592687955812112,
+      "observed_rate": 0.2483221476510067
+    },
+    {
+      "n": 149,
+      "mean_predicted": 0.4159636727716053,
+      "observed_rate": 0.44966442953020136
+    },
+    {
+      "n": 149,
+      "mean_predicted": 0.6460201276321931,
+      "observed_rate": 0.7248322147651006
+    }
+  ],
+  "by_category_test": [
+    {
+      "category": "Gaming",
+      "n": 1000,
+      "observed_rate": 0.108,
+      "mean_predicted": 0.0826686014605957
+    },
+    {
+      "category": "Music",
+      "n": 189,
+      "observed_rate": 0.48677248677248675,
+      "mean_predicted": 0.48242626654518783
+    },
+    {
+      "category": "Entertainment",
+      "n": 163,
+      "observed_rate": 0.09202453987730061,
+      "mean_predicted": 0.13249410866671393
+    },
+    {
+      "category": "People & Blogs",
+      "n": 73,
+      "observed_rate": 0.2054794520547945,
+      "mean_predicted": 0.2150848576053385
+    }
+  ],
+  "permutation_importance_test": [
+    {
+      "feature": "first_day_views",
+      "ap_drop_mean": 0.25713108952633784,
+      "ap_drop_std": 0.018635223519952334
+    },
+    {
+      "feature": "days_published_before_chart",
+      "ap_drop_mean": 0.10829365222399182,
+      "ap_drop_std": 0.0136670022465014
+    },
+    {
+      "feature": "duration_minutes",
+      "ap_drop_mean": 0.1050361245134177,
+      "ap_drop_std": 0.016964185671383462
+    },
+    {
+      "feature": "first_day_engagement_rate",
+      "ap_drop_mean": 0.05988525737557042,
+      "ap_drop_std": 0.013878264469230283
+    },
+    {
+      "feature": "category_id",
+      "ap_drop_mean": 0.058413070460606585,
+      "ap_drop_std": 0.01628171738086376
+    },
+    {
+      "feature": "publish_hour_pt",
+      "ap_drop_mean": 0.048209843347035576,
+      "ap_drop_std": 0.007628909231864804
+    },
+    {
+      "feature": "channel_total_views",
+      "ap_drop_mean": 0.025569647789914697,
+      "ap_drop_std": 0.011532550125438683
+    },
+    {
+      "feature": "channel_video_count",
+      "ap_drop_mean": 0.023243226500070945,
+      "ap_drop_std": 0.0039604953633341515
+    },
+    {
+      "feature": "channel_subscribers",
+      "ap_drop_mean": 0.019834090035787864,
+      "ap_drop_std": 0.006511646179845281
+    },
+    {
+      "feature": "title_char_count",
+      "ap_drop_mean": 0.012379990712379708,
+      "ap_drop_std": 0.004209124210993407
+    },
+    {
+      "feature": "description_word_count",
+      "ap_drop_mean": 0.011418401312936532,
+      "ap_drop_std": 0.0037007119340818706
+    },
+    {
+      "feature": "channel_country",
+      "ap_drop_mean": 0.009142837115670066,
+      "ap_drop_std": 0.006573701160105564
+    },
+    {
+      "feature": "publish_isodow_pt",
+      "ap_drop_mean": 0.008158210028982326,
+      "ap_drop_std": 0.005288920806439055
+    },
+    {
+      "feature": "channel_age_days",
+      "ap_drop_mean": 0.00721559252791919,
+      "ap_drop_std": 0.006441901000186846
+    },
+    {
+      "feature": "tags_count",
+      "ap_drop_mean": 0.005297653112918776,
+      "ap_drop_std": 0.006600697845704522
+    },
+    {
+      "feature": "licensed_content",
+      "ap_drop_mean": 0.0009719283864308648,
+      "ap_drop_std": 0.00041155034538517196
+    },
+    {
+      "feature": "definition",
+      "ap_drop_mean": 0.0,
+      "ap_drop_std": 0.0
+    }
+  ],
+  "protocol_comparison": {
+    "random_split": {
+      "roc_auc": 0.9217972636815921,
+      "average_precision": 0.7071728714674909
+    },
+    "temporal_holdout": {
+      "roc_auc": 0.8995915754724338,
+      "average_precision": 0.6582563569403668
+    },
+    "temporal_holdout_new_channels": {
+      "roc_auc": 0.8425961172440046,
+      "average_precision": 0.5939048526380329
+    }
+  }
+}
