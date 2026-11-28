@@ -1,0 +1,12 @@
+# Only pyproject/uv.lock/README, pipeline/ and ml/models are needed for the API image.
+.git
+.venv
+web
+data
+notebooks
+db
+.github
+**/__pycache__
+**/.pytest_cache
+.env
+.env.*

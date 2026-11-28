@@ -42,5 +42,7 @@ uv run --extra api uvicorn tubescope.api:app --port 8000
 - **Site (Vercel):** import the repo, set the root directory to `web`, and add
   `DATABASE_URL` (the Neon connection string; a read-only role is best) and
   `PREDICT_API_URL`. Pages are static and revalidate hourly.
-- **Prediction API:** any container host. `Dockerfile.api` at the repo root builds it; set
-  `TUBESCOPE_CORS_ORIGINS` to the site's URL.
+- **Prediction API (Render, free):** `render.yaml` at the repo root is a Render Blueprint
+  for `Dockerfile.api`. In Render choose **New → Blueprint**, pick the repository, and deploy.
+  Then set `PREDICT_API_URL` in Vercel to the service URL and redeploy. Free instances sleep
+  when idle; the simulator wakes it on page load and shows a message while it starts.
