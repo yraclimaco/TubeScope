@@ -4,7 +4,8 @@
 -- label_observable is false when the outcome cannot be known:
 --   * the first streak is left-truncated (the video may have charted before the data starts),
 --   * a one-day first streak is right-censored (the next day was never observed).
-CREATE VIEW analytics.video_lifecycle AS
+-- Materialized (read by most downstream views); rebuilt after every load.
+CREATE MATERIALIZED VIEW analytics.video_lifecycle AS
 WITH first_streak AS (
     SELECT * FROM analytics.video_streaks WHERE streak_number = 1
 ),
@@ -56,3 +57,5 @@ JOIN core.snapshot_batch AS b
     ON b.region = f.region AND b.snapshot_date = f.streak_start
 JOIN core.video_snapshot AS s
     ON s.region = f.region AND s.video_id = f.video_id AND s.snapshot_date = f.streak_start;
+
+CREATE UNIQUE INDEX ON analytics.video_lifecycle (region, video_id);

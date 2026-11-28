@@ -1,0 +1,151 @@
+@import "tailwindcss";
+
+/* TubeScope "midnight" theme. Dark by design. Chart colours were validated for
+   colour-vision deficiency and contrast against --surface-1 with the dataviz validator. */
+:root {
+  color-scheme: dark;
+  --bg: #0f0f0f;
+  --surface-1: #181818; /* cards and chart surface: chart gaps/rings use this exact colour */
+  --surface-2: #222222; /* chips, inputs */
+  --surface-3: #2e2e2e; /* hover */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --grid: rgba(255, 255, 255, 0.06);
+  --text-primary: #f1f1f1;
+  --text-secondary: #c4c4c4;
+  --text-muted: #9a9a9a;
+  --accent: #ff4d4f;
+  --accent-2: #ff8a3d;
+  --accent-soft: rgba(255, 77, 79, 0.14);
+
+  /* categorical: fixed per category, never by rank */
+  --series-1: #3987e5; /* Gaming */
+  --series-2: #d95926; /* Music */
+  --series-3: #199e70; /* Entertainment */
+  --series-4: #c98500; /* People & Blogs */
+  --series-other: #6b6b72;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ink: var(--text-primary);
+  --color-ink-2: var(--text-secondary);
+  --color-ink-3: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-face), ui-monospace, SFMono-Regular, monospace;
+}
+
+html {
+  background: var(--bg);
+  color: var(--text-primary);
+}
+
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+body {
+  overflow-x: clip; /* full-bleed sections use 100vw */
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11" 1, "ss01" 1;
+  background: var(--bg);
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.text-gradient {
+  background: linear-gradient(180deg, #ffffff 20%, #9a9aa6 110%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.text-brand {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Cards: solid surface, hairline border, top highlight, and a soft glow that follows the
+   cursor (--mx/--my are set by <Spotlight />). */
+.card {
+  position: relative;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  transition: border-color 0.4s var(--ease-out);
+}
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s var(--ease-out);
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, 0.045), transparent 45%);
+}
+.card:hover {
+  border-color: var(--border-strong);
+}
+.card:hover::before {
+  opacity: 1;
+}
+
+/* Elements animated in by GSAP start hidden only when motion is allowed and JS is running. */
+.js-motion [data-reveal]:not([data-reveal-bound]) {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .js-motion [data-reveal] {
+    opacity: 1 !important;
+  }
+  .card,
+  .card::before {
+    transition: none;
+  }
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) transparent;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* SQL highlighting */
+.sql .kw { color: #ff8a8a; }
+.sql .fn { color: #8ab8f0; }
+.sql .str { color: #9ed9b8; }
+.sql .num { color: #e5c07b; }
+.sql .cm { color: var(--text-muted); font-style: italic; }

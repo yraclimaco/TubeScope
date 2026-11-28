@@ -5,12 +5,14 @@
 > **Status: TubeScope 2.0 rebuild in progress.** The original DS3 project (a Streamlit app,
 > 3rd of 10 at the DS3 Showcase) is being rebuilt as a SQL-first analytics platform with a
 > Next.js frontend and Tableau dashboards. Done so far: **Phase 1** (data foundation),
-> **Phase 2** (model retraining and honest evaluation) and **Phase 3** (daily data pipeline). The Streamlit app remains on the upstream `streamlit-ui` branch for reference.
+> **Phase 2** (model retraining and honest evaluation), **Phase 3** (daily data pipeline) and
+> **Phase 4** (the web app). The Streamlit app remains on the upstream `streamlit-ui` branch for reference.
 
 ## What's here
 
 | Path | Contents |
 |---|---|
+| `web/` | Next.js site: dashboards, model page, what-if simulator, SQL lab ([details](web/README.md)) |
 | `pipeline/src/tubescope/` | Python package: source normalisers, YouTube API client, Postgres loader, CLI |
 | `db/migrations/` | Core warehouse schema (`core.*` facts and dimensions, `ml.*` model registry) |
 | `db/views/` | Analytics layer (`analytics.*`): lifecycles, labels, benchmarks, leaderboards |
@@ -47,6 +49,19 @@ TEST_DATABASE_URL=postgresql://localhost:5432/tubescope_test uv run pytest
 uv run ruff check . && uv run ruff format --check .
 ```
 
+## Web app
+
+`web/` is a Next.js site laid out like a video platform: a searchable thumbnail feed with topic
+chips, where every video opens a watch-style analytics page (its chart run, views and the
+model's day-one prediction). Alongside it: category and channel dashboards, the model
+evaluation, a what-if simulator, and a SQL lab that shows every view and query behind the
+charts. See [`web/README.md`](web/README.md) to run or deploy it.
+
+```bash
+cd web && cp .env.example .env.local && npm install && npm run dev
+uv run --extra api uvicorn tubescope.api:app --port 8000   # for the simulator
+```
+
 ## Daily pipeline
 
 `.github/workflows/daily.yml` runs `tubescope daily` at 17:17 UTC every day:
@@ -61,7 +76,8 @@ uv run ruff check . && uv run ruff format --check .
 5. Fails the run if the chart came back with under 90% of its rows. The partial day is still
    loaded and archived; the views treat it as incomplete.
 
-Each run writes a summary to the Actions run page. `analytics.data_freshness` reports the
+Each run writes a summary to the Actions run page. Two views (`video_streaks`,
+`video_lifecycle`) are materialized for speed, so every load command rebuilds the views. `analytics.data_freshness` reports the
 latest chart day and recent completeness.
 
 ### One-time setup

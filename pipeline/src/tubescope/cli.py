@@ -35,6 +35,7 @@ def _cmd_load_kaggle(args: argparse.Namespace) -> dict:
     with db.connect(args.database_url) as conn:
         for path in paths:
             results[path.name] = db.load_bundle(conn, sources.kaggle_bundle(path))
+        db.rebuild_views(conn)
     return results
 
 
@@ -43,7 +44,9 @@ def _cmd_load_snapshots(args: argparse.Namespace) -> dict:
     paths = sorted(directory.glob("*.csv"))
     bundle = sources.legacy_snapshots_bundle(paths, region=args.region)
     with db.connect(args.database_url) as conn:
-        return {"files_found": len(paths), **db.load_bundle(conn, bundle)}
+        loaded = db.load_bundle(conn, bundle)
+        db.rebuild_views(conn)
+    return {"files_found": len(paths), **loaded}
 
 
 def _cmd_ingest(args: argparse.Namespace) -> dict:
@@ -52,6 +55,7 @@ def _cmd_ingest(args: argparse.Namespace) -> dict:
     archived = None if args.no_archive else str(daily.archive(payload, Path(args.archive_dir)))
     with db.connect(args.database_url) as conn:
         loaded = daily.load_payload(conn, payload)
+        db.rebuild_views(conn)
     return {"captured_at": payload["captured_at"], "archived_to": archived, **loaded}
 
 
@@ -61,6 +65,7 @@ def _cmd_load_api_archive(args: argparse.Namespace) -> dict:
     with db.connect(args.database_url) as conn:
         for path in paths:
             results[path.name] = daily.load_payload(conn, daily.read_archive(path))
+        db.rebuild_views(conn)
     return results
 
 

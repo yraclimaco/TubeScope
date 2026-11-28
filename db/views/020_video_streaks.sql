@@ -5,7 +5,10 @@
 --
 -- left_truncated: the day before the streak was not observed, so it may have started earlier.
 -- right_censored: the day after the streak was not observed, so it may have continued.
-CREATE VIEW analytics.video_streaks AS
+-- Materialized: Postgres can't estimate how many rows survive a filter on a window function,
+-- and the resulting plans made every downstream view take ~15 s. Stored rows have real
+-- statistics. It is rebuilt with the rest of the schema after every load.
+CREATE MATERIALIZED VIEW analytics.video_streaks AS
 WITH complete_days AS (
     SELECT region, snapshot_date
     FROM analytics.snapshot_coverage
@@ -51,3 +54,5 @@ LEFT JOIN complete_days AS before
     ON before.region = st.region AND before.snapshot_date = st.streak_start - 1
 LEFT JOIN complete_days AS after
     ON after.region = st.region AND after.snapshot_date = st.streak_end + 1;
+
+CREATE INDEX ON analytics.video_streaks (region, video_id, streak_number);
