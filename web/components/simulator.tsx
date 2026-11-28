@@ -64,7 +64,23 @@ export function Simulator({ defaults }: { defaults: Defaults }) {
   const [result, setResult] = useState<Prediction | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [slow, setSlow] = useState(false);
   const seq = useRef(0);
+
+  // Wake the prediction server as soon as the page opens (free hosting sleeps when idle).
+  useEffect(() => {
+    fetch("/api/predict", { cache: "no-store" }).catch(() => {});
+  }, []);
+
+  // If a request takes a while, explain why instead of looking frozen.
+  useEffect(() => {
+    if (!loading) {
+      setSlow(false);
+      return;
+    }
+    const t = setTimeout(() => setSlow(true), 2500);
+    return () => clearTimeout(t);
+  }, [loading]);
 
   useEffect(() => {
     const id = ++seq.current;
@@ -154,7 +170,16 @@ export function Simulator({ defaults }: { defaults: Defaults }) {
 
       <div className="space-y-6">
         <section className="card p-6" aria-live="polite">
-          {error ? (
+          {slow && !result && !error ? (
+            <div className="py-14 text-center">
+              <span className="mx-auto block size-8 animate-spin rounded-full border-2 border-surface-3 border-t-accent" />
+              <p className="mt-4 text-sm text-ink">Waking up the model server…</p>
+              <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-ink-3">
+                It runs on free hosting that sleeps when nobody has used it for a while. The
+                first prediction can take up to a minute; after that it&apos;s instant.
+              </p>
+            </div>
+          ) : error ? (
             <div className="py-10 text-center">
               <p className="text-sm text-ink">The prediction service isn&apos;t reachable.</p>
               <p className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-ink-3">

@@ -1,13 +1,18 @@
 # Prediction API for the what-if simulator (tubescope.api). Serves the committed
-# prepublish model from ml/models.
+# prepublish model from ml/models. Hosted on Render via render.yaml.
 #   docker build -f Dockerfile.api -t tubescope-api .
-#   docker run -p 8000:8000 -e TUBESCOPE_CORS_ORIGINS=https://your-site.vercel.app tubescope-api
+#   docker run -p 8000:8000 tubescope-api
 FROM python:3.12-slim
 COPY --from=ghcr.io/astral-sh/uv:0.13.8 /uv /bin/uv
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    PYTHONUNBUFFERED=1 \
+    TUBESCOPE_MODELS_DIR=/app/ml/models
 WORKDIR /app
 COPY pyproject.toml uv.lock README.md ./
 COPY pipeline ./pipeline
 COPY ml/models ./ml/models
 RUN uv sync --locked --no-dev --extra api
 EXPOSE 8000
-CMD ["uv", "run", "--no-sync", "uvicorn", "tubescope.api:app", "--host", "0.0.0.0", "--port", "8000"]
+# Hosts such as Render tell the app which port to use through $PORT.
+CMD ["sh", "-c", "exec /app/.venv/bin/uvicorn tubescope.api:app --host 0.0.0.0 --port ${PORT:-8000}"]

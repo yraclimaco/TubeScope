@@ -1,0 +1,19 @@
+# Render Blueprint for the simulator's prediction API (free plan).
+# Render: New -> Blueprint -> pick this repository. Free instances sleep after ~15 minutes
+# idle and take up to a minute to wake; the site's /api/predict proxy waits for that.
+services:
+  - type: web
+    name: tubescope-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile.api
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - Dockerfile.api
+        - pyproject.toml
+        - uv.lock
+        - pipeline/src/**
+        - ml/models/**
