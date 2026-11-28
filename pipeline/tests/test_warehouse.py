@@ -85,8 +85,13 @@ def _query(conn, sql, params=None):
     return pd.DataFrame(cur.fetchall(), columns=columns)
 
 
+def _load(conn) -> None:
+    db.load_bundle(conn, _bundle())
+    db.rebuild_views(conn)  # some analytics views are materialized
+
+
 def test_coverage_flags_incomplete_and_missing_days(warehouse):
-    db.load_bundle(warehouse, _bundle())
+    _load(warehouse)
     cov = _query(warehouse, "SELECT * FROM analytics.snapshot_coverage ORDER BY snapshot_date")
     assert cov["is_complete"].tolist() == [False, True, True, True, True, True]
     assert (
@@ -95,7 +100,7 @@ def test_coverage_flags_incomplete_and_missing_days(warehouse):
 
 
 def test_streaks_handle_gaps_truncation_and_censoring(warehouse):
-    db.load_bundle(warehouse, _bundle())
+    _load(warehouse)
     streaks = _query(
         warehouse,
         "SELECT video_id, streak_number, streak_days, left_truncated, right_censored "
@@ -118,7 +123,7 @@ def test_streaks_handle_gaps_truncation_and_censoring(warehouse):
 
 
 def test_video_features_labels_and_point_in_time_channel_stats(warehouse):
-    db.load_bundle(warehouse, _bundle())
+    _load(warehouse)
     features = _query(
         warehouse,
         "SELECT video_id, is_multiday, label_observable, total_days_on_chart, "
@@ -141,7 +146,7 @@ def test_video_features_labels_and_point_in_time_channel_stats(warehouse):
 
 
 def test_category_benchmarks_use_only_observable_labels(warehouse):
-    db.load_bundle(warehouse, _bundle())
+    _load(warehouse)
     bench = _query(
         warehouse,
         "SELECT category, videos, labeled_videos, multiday_videos, multiday_rate, "
@@ -158,12 +163,13 @@ def test_category_benchmarks_use_only_observable_labels(warehouse):
 
 
 def test_every_analytics_view_runs(warehouse):
-    db.load_bundle(warehouse, _bundle())
+    _load(warehouse)
     views = _query(
         warehouse,
-        "SELECT table_name FROM information_schema.views WHERE table_schema = 'analytics'",
+        "SELECT table_name FROM information_schema.views WHERE table_schema = 'analytics' "
+        "UNION ALL SELECT matviewname FROM pg_matviews WHERE schemaname = 'analytics'",
     )["table_name"]
-    assert len(views) >= 9
+    assert len(views) >= 11
     for name in views:
         warehouse.execute(f"SELECT * FROM analytics.{name}").fetchall()
 

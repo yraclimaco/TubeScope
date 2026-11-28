@@ -53,13 +53,21 @@ def migrate(conn: psycopg.Connection, migrations_dir: Path = config.MIGRATIONS_D
 
 
 def rebuild_views(conn: psycopg.Connection, views_dir: Path = config.VIEWS_DIR) -> list[str]:
-    """Drop and recreate the analytics schema from the view files, atomically."""
+    """Drop and recreate the analytics schema from the view files, atomically.
+
+    Some views are materialized, so this must run after every load (the CLI load commands do).
+    """
     files = sorted(views_dir.glob("*.sql"))
     with conn.transaction():
         conn.execute("DROP SCHEMA IF EXISTS analytics CASCADE")
         conn.execute("CREATE SCHEMA analytics")
         for path in files:
             conn.execute(path.read_text())
+        # Materialized views need statistics before the planner can use them well.
+        for (name,) in conn.execute(
+            "SELECT matviewname FROM pg_matviews WHERE schemaname = 'analytics'"
+        ).fetchall():
+            conn.execute(f'ANALYZE analytics."{name}"')
     return [path.name for path in files]
 
 
